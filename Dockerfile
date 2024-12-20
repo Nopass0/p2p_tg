@@ -14,11 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Запускаем Flask-приложение на порту 9000 через Python
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=9000"]
+CMD ["python", "app.py"]
 
-# Выставляем переменную окружения для Flask
+# Выставляем переменную окружения для Flask (не обязательно, если используем app.py напрямую)
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=development
-
-# Добавляем Flask в переменную окружения PATH
-ENV PATH="$PATH:/root/.local/bin"

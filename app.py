@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from wallet.rest import Wallet
 import os
-import socket
 
 app = Flask(__name__)
 
@@ -38,19 +37,11 @@ def get_orders():
 
     return jsonify(orders_json)
 
-def get_host_ip():
-    try:
-        host_name = socket.gethostname()
-        host_ip = socket.gethostbyname(host_name)
-    except:
-        host_ip = '127.0.0.1'
-    return host_ip
-
 if __name__ == '__main__':
     if os.path.exists('token.txt'):
         os.remove('token.txt')
 
-    host_ip = get_host_ip()
+    host_ip = '0.0.0.0'
     port = 9000
     server_address = f"http://{host_ip}:{port}"
 
