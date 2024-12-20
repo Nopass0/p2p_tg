@@ -7,3 +7,4 @@ setuptools~=68.1.2
 dataclasses-json
 blinker==1.7.0
 Flask==2.3.2
+pyTelegramWalletApi
