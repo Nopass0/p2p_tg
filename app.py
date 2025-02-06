@@ -14,19 +14,21 @@ logger = logging.getLogger(__name__)
 
 def get_page_with_timeout(wallet, offset, limit, status, timeout=30):
     """
-    Пытается получить страницу истории заказов до успешного результата.
-    Если в течение timeout секунд не удаётся получить ответ без ошибок,
-    выбрасывает последнее исключение.
+    Пытается получить страницу истории заказов с указанным offset и limit.
+    Если в течение timeout секунд не удаётся получить успешный ответ,
+    выбрасывает последнее возникшее исключение.
     """
     start_time = time.time()
     last_error = None
+    attempt = 1
     while True:
         try:
             result = wallet.get_own_p2p_order_history(offset, limit, status)
             return result
         except Exception as e:
             last_error = e
-            logger.error(f"Ошибка при получении заказов с offset={offset}: {e}")
+            logger.error(f"Ошибка при получении заказов с offset={offset}: {e}. Попытка #{attempt}")
+            attempt += 1
             if time.time() - start_time > timeout:
                 logger.error("За последние 30 секунд не удалось получить успешный ответ. Возврат последней ошибки.")
                 raise last_error
@@ -56,13 +58,13 @@ def create_app():
             max_orders = 500
             orders = []
 
-            # Пагинация для получения заказов до 500 штук
+            # Пагинация для получения заказов до max_orders
             while len(orders) < max_orders:
                 try:
                     current_orders = get_page_with_timeout(w, offset, limit, "COMPLETED_FOR_REQUESTER", timeout=30)
                 except Exception as error:
                     # Если для текущей страницы не удалось получить ответ без ошибок в течение 30 секунд,
-                    # возвращаем последнюю ошибку
+                    # возвращаем последнюю ошибку клиенту
                     return jsonify({"error": str(error)}), 500
 
                 if not current_orders:
@@ -72,8 +74,8 @@ def create_app():
                 orders.extend(current_orders)
                 logger.info(f"Общее количество полученных заказов: {len(orders)}")
 
+                # Если в последнем запросе заказов меньше лимита, значит данные закончились
                 if len(current_orders) < limit:
-                    # Если в последнем запросе заказов меньше лимита, значит данные закончились
                     break
 
                 offset += limit
@@ -82,7 +84,7 @@ def create_app():
             if len(orders) > max_orders:
                 orders = orders[:max_orders]
 
-            # Преобразование заказов в формат JSON
+            # Преобразование заказов в JSON-совместимый формат
             orders_json = []
             for order in orders:
                 order_info = {
