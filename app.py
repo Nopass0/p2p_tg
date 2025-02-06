@@ -12,6 +12,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_page_with_timeout(wallet, offset, limit, status, timeout=30):
+    """
+    Пытается получить страницу истории заказов до успешного результата.
+    Если в течение timeout секунд не удаётся получить ответ без ошибок,
+    выбрасывает последнее исключение.
+    """
+    start_time = time.time()
+    last_error = None
+    while True:
+        try:
+            result = wallet.get_own_p2p_order_history(offset, limit, status)
+            return result
+        except Exception as e:
+            last_error = e
+            logger.error(f"Ошибка при получении заказов с offset={offset}: {e}")
+            if time.time() - start_time > timeout:
+                logger.error("За последние 30 секунд не удалось получить успешный ответ. Возврат последней ошибки.")
+                raise last_error
+            time.sleep(1)
+
 def create_app():
     app = Flask(__name__)
 
@@ -38,38 +58,27 @@ def create_app():
 
             # Пагинация для получения заказов до 500 штук
             while len(orders) < max_orders:
-                current_orders = None
-                start_time = time.time()  # Начало попыток для данного запроса
-                last_error = None
+                try:
+                    current_orders = get_page_with_timeout(w, offset, limit, "COMPLETED_FOR_REQUESTER", timeout=30)
+                except Exception as error:
+                    # Если для текущей страницы не удалось получить ответ без ошибок в течение 30 секунд,
+                    # возвращаем последнюю ошибку
+                    return jsonify({"error": str(error)}), 500
 
-                # Вложенный цикл с повторными попытками; если 30 секунд подряд не удаётся получить ответ без ошибок,
-                # возвращается последняя ошибка
-                while current_orders is None:
-                    try:
-                        current_orders = w.get_own_p2p_order_history(offset, limit, "COMPLETED_FOR_REQUESTER")
-                    except Exception as e:
-                        last_error = e
-                        logger.error(f"Ошибка при получении заказов с offset={offset}: {e}. Повтор через 1 секунду.")
-                        if time.time() - start_time > 30:
-                            logger.error("За последние 30 секунд не удалось получить успешный ответ. Возврат последней ошибки.")
-                            return jsonify({"error": str(last_error)}), 500
-                        time.sleep(1)
-
-                # Если данных больше нет, завершаем пагинацию
                 if not current_orders:
-                    logger.info("Новых заказов не найдено, завершаем цикл.")
+                    logger.info("Новых заказов не найдено, завершаем пагинацию.")
                     break
 
                 orders.extend(current_orders)
                 logger.info(f"Общее количество полученных заказов: {len(orders)}")
 
-                # Если получено меньше, чем limit, то достигнут конец данных
                 if len(current_orders) < limit:
+                    # Если в последнем запросе заказов меньше лимита, значит данные закончились
                     break
 
                 offset += limit
 
-            # Если заказов больше max_orders, оставляем только последние 500
+            # Если заказов больше max_orders, оставляем только первые 500 (предполагается, что они отсортированы от новых к старым)
             if len(orders) > max_orders:
                 orders = orders[:max_orders]
 
