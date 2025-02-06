@@ -63,9 +63,11 @@ def create_app():
                 try:
                     current_orders = get_page_with_timeout(w, offset, limit, "COMPLETED_FOR_REQUESTER", timeout=30)
                 except Exception as error:
-                    # Если для текущей страницы не удалось получить ответ без ошибок в течение 30 секунд,
-                    # возвращаем последнюю ошибку клиенту
-                    return jsonify({"error": str(error)}), 500
+                    if orders:
+                        logger.error("Произошёл таймаут, но уже собраны некоторые заказы. Возвращаем накопленные данные.")
+                        break
+                    else:
+                        return jsonify({"error": str(error)}), 500
 
                 if not current_orders:
                     logger.info("Новых заказов не найдено, завершаем пагинацию.")
