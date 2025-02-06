@@ -32,7 +32,7 @@ def create_app():
                 f.write(token)
 
             w = Wallet.token_from_file('token.txt')
-            orders = w.get_own_p2p_order_history(0, 100, "COMPLETED_FOR_REQUESTER")
+            orders = w.get_own_p2p_order_history(0, 1000, "COMPLETED_FOR_REQUESTER")
 
             logger.info(f"Retrieved {len(orders) if orders else 0} orders")
 
