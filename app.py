@@ -55,7 +55,7 @@ def create_app():
 
             offset = 0
             limit = 100
-            max_orders = 500
+            max_orders = 1500
             orders = []
 
             # Пагинация для получения заказов до max_orders
